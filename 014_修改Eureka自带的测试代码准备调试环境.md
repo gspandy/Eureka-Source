@@ -18,7 +18,7 @@ eureka，非常适合的是通过测试代码，打断点跟进去看
 
  
 
-***\*1、手动启动eureka注册中心\****
+**1、手动启动eureka注册中心**
 
  
 
@@ -72,7 +72,7 @@ eurekaServiceUrl = "http://localhost:8080/v2";
 
  
 
-***\*2、启动eureka客户端\****
+**2、启动eureka客户端**
 
  
 
@@ -93,3 +93,4 @@ eureka-examples里面，src/main/java的com.netflix.eureka包下，有个Example
  
 
  
+

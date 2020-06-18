@@ -34,7 +34,9 @@ spring cloud Edgware.SR3对应的是netflix eureka的1.7.2的版本
 
  
 
-咱们来一点点儿看，第一个要看的，肯定是eureka-server了，因为就是用eureka-server先启动注册中心的，然后人家才能来注册服务和发现服务
+咱们来一点点儿看，第一个要看的，肯定是eureka-server了
+
+因为就是用eureka-server先启动注册中心的，然后人家才能来注册服务和发现服务
 
  
 

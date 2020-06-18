@@ -1,4 +1,4 @@
-***\*1、心跳检测\****
+**1、心跳检测**
 
  
 
@@ -6,7 +6,7 @@ eureka客户端，默认会每隔30秒发送一次心跳的eureka注册中心，
 
  
 
-另外这个心跳检测的机制其实叫做renew机制，看下面的参数配置就知道了，也可以叫做服务续约
+另外这个心跳检测的机制其实叫做renew机制，看下面的参数配置就知道了，也可以叫做**服务续约**
 
  
 
@@ -24,7 +24,7 @@ eureka.instance.leaseExpirationDurationInSeconds
 
  
 
-***\*2、注册表抓取\****
+**2、注册表抓取**
 
  
 
@@ -36,7 +36,7 @@ eureka.client.registryFetchIntervalSeconds
 
  
 
-***\*3、自定义元数据\****
+**3、自定义元数据**
 
  
 
@@ -46,7 +46,7 @@ instance:
 
 hostname: localhosto
 
-metadata-map:
+**metadata-map**:
 
 company-name: zhss
 
@@ -56,7 +56,7 @@ company-name: zhss
 
  
 
-***\*4、自我保护模式\****
+**4、自我保护模式**
 
  
 
