@@ -1,4 +1,10 @@
+
+
 EurekaClientConfig
+
+com.netflix.discovery.EurekaClientConfig
+
+com.netflix.discovery.DefaultEurekaClientConfig#DefaultEurekaClientConfig()
 
 EurekaClient相关的一些配置项,eureka-client.properties里的一些配置
 
@@ -6,13 +12,48 @@ EurekaClient相关的一些配置项,eureka-client.properties里的一些配置
 
 EurekaInstanceConfig
 
+com.netflix.appinfo.EurekaInstanceConfig
+
 Eureka server服务实例的一些配置项
 
  
 
+
+
+```
+        //3 ，初始化eureka-server内部的一个eureka-client（用来跟其他的eureka-server节点进行注册和通信的）
+        if (eurekaClient == null) {
+            EurekaInstanceConfig instanceConfig = isCloud(ConfigurationManager.getDeploymentContext())//实例配置
+                    ? new CloudInstanceConfig()
+                    : new MyDataCenterInstanceConfig();
+            
+            applicationInfoManager = new ApplicationInfoManager(
+                    instanceConfig, new EurekaConfigBasedInstanceInfoProvider(instanceConfig).get());
+            
+            EurekaClientConfig eurekaClientConfig = new DefaultEurekaClientConfig();//客户端配置
+            eurekaClient = new DiscoveryClient(applicationInfoManager, eurekaClientConfig);//客户端
+        } else {
+            applicationInfoManager = eurekaClient.getApplicationInfoManager();
+        }
+```
+
+
+
+## DiscoveryClient
+
 基于ApplicationInfoManager（包含了服务实例的信息、配置，作为服务实例管理的一个组件），eureka client相关的配置，一起构建了一个EurekaClient，但是构建的时候，用的是EurekaClient的子类，DiscoveryClient。
 
 
+
+com.netflix.discovery.DiscoveryClient#DiscoveryClient(com.netflix.appinfo.ApplicationInfoManager, com.netflix.discovery.EurekaClientConfig, com.netflix.discovery.AbstractDiscoveryClientOptionalArgs, com.netflix.discovery.shared.resolver.EndpointRandomizer)
+
+com.netflix.discovery.DiscoveryClient#DiscoveryClient(com.netflix.appinfo.ApplicationInfoManager, com.netflix.discovery.EurekaClientConfig, com.netflix.discovery.AbstractDiscoveryClientOptionalArgs, javax.inject.Provider<com.netflix.discovery.BackupRegistry>, com.netflix.discovery.shared.resolver.EndpointRandomizer)
+
+
+
+```
+appPathIdentifier = instanceInfo.getAppName() + "/" + instanceInfo.getId();
+```
 
 AppName，代表了一个服务名称，但是一个服务可能部署多台机器，
 
@@ -22,11 +63,34 @@ AppName，代表了一个服务名称，但是一个服务可能部署多台机�
 
  
 
+```java
+        if (config.shouldFetchRegistry()) {
+            this.registryStalenessMonitor = new ThresholdLevelsMetric(this, METRIC_REGISTRY_PREFIX + "lastUpdateSec_", new long[]{15L, 30L, 60L, 120L, 240L, 480L});
+        } else {
+            this.registryStalenessMonitor = ThresholdLevelsMetric.NO_OP_METRIC;
+        }
+
+        if (config.shouldRegisterWithEureka()) {
+            this.heartbeatStalenessMonitor = new ThresholdLevelsMetric(this, METRIC_REGISTRATION_PREFIX + "lastHeartbeatSec_", new long[]{15L, 30L, 60L, 120L, 240L, 480L});
+        } else {
+            this.heartbeatStalenessMonitor = ThresholdLevelsMetric.NO_OP_METRIC;
+        }
+
+```
+
+配置
+
+fetchRegistry
+
+registerWithEureka
+
 如果是eureka server的话，在spring cloud的时候，会将这个fetchRegistry给手动设置为false，
 
 因为如果单个eureka server启动的话，就不能设置，但是如果是eureka server集群的话，就还是要保持为true。registerWithEureka是否要设置为true。
 
  
+
+
 
 （1）读取EurekaClientConfig，包括TransportConfig
 
@@ -48,4 +112,3 @@ AppName，代表了一个服务名称，但是一个服务可能部署多台机�
 
  
 
-课后的作业，你就把EurekaClient初始化的过程的源码，按照上面的思路，自己仔细去看一遍，但是注意，抓大放小，不要过度纠结于细节，把握大的流程就可以了
