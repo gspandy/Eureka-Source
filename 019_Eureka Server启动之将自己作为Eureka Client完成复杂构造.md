@@ -1,40 +1,30 @@
-EurekaClientConfig，这个东西也是个接口，也是对外暴露了一大堆的配置项，看名字就知道了啊，这里包含的是EurekaClient相关的一些配置项。也是去读eureka-client.properties里的一些配置，只不过他关注的是跟之前的那个EurekaInstanceConfig是不一样的，代表了服务实例的一些配置项，这里的是关联的这个EurekaClient的一些配置项。
+EurekaClientConfig
+
+EurekaClient相关的一些配置项,eureka-client.properties里的一些配置
+
+
+
+EurekaInstanceConfig
+
+Eureka server服务实例的一些配置项
 
  
 
 基于ApplicationInfoManager（包含了服务实例的信息、配置，作为服务实例管理的一个组件），eureka client相关的配置，一起构建了一个EurekaClient，但是构建的时候，用的是EurekaClient的子类，DiscoveryClient。
 
- 
 
-说一下基于接口的配置项读取的优势，跟直接拿常量来读取配置项的区别
 
- 
+AppName，代表了一个服务名称，但是一个服务可能部署多台机器，
 
-假如说你现在要获取一个配置，你调用了Config.get(ConfigKeys.XX_XX_XX)，结果有可能说，你不小心把常量给打错了，或者是搞混了。但是如果你是基于接口，Config.getXxXxXx()，这种方式，还是不错的，不太容易会搞错了。
+每台机器上部署的就是一个服务实例，ServiceA/001
 
  
 
-优势，Config.get(ConfigKeys.XX_XX_XX)这行代码出现在了20个地方，结果坑爹的事情是，有一天，版本升级，要修改常量的名字，常量名字一修改，你可能要到20个地方去修改，很麻烦，很容易出错。Config.getXxXxXx()，20个地方都调用了这个方法罢了，如果要调整这个常量的名称，直接在方法里修改即可，对调用这个配置项的地方，都是透明的。
-
  
 
-很值得大家来吸收和使用
+如果是eureka server的话，在spring cloud的时候，会将这个fetchRegistry给手动设置为false，
 
- 
-
-AppName，代表了一个服务名称，但是一个服务可能部署多台机器，每台机器上部署的就是一个服务实例，ServiceA/001
-
- 
-
-讲一个看源码的技巧，你就顺着整个你平时用这个技术的一个思路去看就好了，而且在看的过程中，记住一个原则：抓大放小，把握大的架构、流程、机制，核心的细节看一下，千万别强迫自己把每个细节每行代码都要看懂。到了后面，针对各个功能、流程以及高级特性，有针对性的看细节的代码，包括各个参数是怎么用的。
-
- 
-
-AtomicLong和AtomicReference，都看一下面试突击第二季，原子性操作的一些类
-
- 
-
-如果是eureka server的话，我们在玩儿spring cloud的时候，会将这个fetchRegistry给手动设置为false，因为如果就单个eureka server启动的话，就不能设置，但是如果是eureka server集群的话，就还是要保持为true。registerWithEureka是否要设置为true。
+因为如果单个eureka server启动的话，就不能设置，但是如果是eureka server集群的话，就还是要保持为true。registerWithEureka是否要设置为true。
 
  
 
