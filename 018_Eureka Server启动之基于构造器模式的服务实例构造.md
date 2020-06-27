@@ -1,8 +1,12 @@
-Application是个什么概念，就是说，如果你是一个eureka client，客户端，扮演的角色其实是一个服务，你作为一个服务会向eureka server去注册。Application，其实你可以认为，就是一个eureka client -> Application，服务。
+
+
+
+
+Application：如果是一个eureka client客户端，扮演的角色其实是一个服务，作为一个服务会向eureka server去注册。Application，就是一个eureka client -> Application，服务。
 
  
 
-EurekaInstanceConfig，其实不用多讲了，其实跟之前的是类似的，其实就是将eureka-client.properties文件中的配置加载到ConfigurationManager中去，然后基于EurekaInstanceConfig对外暴露的接口来获取这个eureka-client.properties文件中的一些配置项的读取，而且人家提供了所有配置项的默认值
+EurekaInstanceConfig，将eureka-client.properties文件中的配置加载到ConfigurationManager中去，然后基于EurekaInstanceConfig对外暴露的接口来获取这个eureka-client.properties文件中的一些配置项的读取，而且提供了所有配置项的默认值
 
  
 
