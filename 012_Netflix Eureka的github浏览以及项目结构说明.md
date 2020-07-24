@@ -1,6 +1,6 @@
  
 
-spring cloud eureka server和client是对netflix的eureka进行了封装，加了一些注解，对spring boot进行支持。所以上来如果你要看eureka的源码，是先从netflix eureka开始看起，后面结束了再把spring cloud eureka server和client两个项目的源码给看一下就可以了。
+
 
  
 

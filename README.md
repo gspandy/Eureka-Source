@@ -1,7 +1,7 @@
 # EurekaSource
- EurekaSource 源码
 
 
+## 常用配置
 
 
 
@@ -11,13 +11,17 @@ https://segmentfault.com/a/1190000014107639
 
 
 
-常用配置
+
 
 [http://blog.leanote.com/post/mzoro/eureka-%E4%B8%80%E4%BA%9B%E5%B8%B8%E7%94%A8%E7%9A%84%E9%85%8D%E7%BD%AE](http://blog.leanote.com/post/mzoro/eureka-一些常用的配置)
 
 
 
-jersey
+
+
+
+
+## jersey
 
 Jersey是一个RESTFUL请求服务JAVA框架，与常规的JAVA编程使用的struts框架类似，它主要用于处理业务逻辑层。
 
@@ -46,7 +50,7 @@ Jersey提供了在SE环境下的部署，即使用内置的服务器来发布RES
 
 
 
-依赖注入
+## Guice依赖注入
 
 @ProvidedBy      
 
@@ -82,7 +86,7 @@ javax.inject.Inject
 
 
 
-
+## 建造者模式
 
 https://zhuanlan.zhihu.com/p/58093669   秒懂设计模式之建造者模式
 
@@ -94,7 +98,8 @@ https://zhuanlan.zhihu.com/p/58093669   秒懂设计模式之建造者模式
 
 
 
+# Google Guava实现定时缓存功能
 
 
 
-
+eureka的读写缓存
