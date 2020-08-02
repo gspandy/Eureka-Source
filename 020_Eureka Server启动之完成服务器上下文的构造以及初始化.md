@@ -93,3 +93,5 @@ registry.init(peerEurekaNodes);
 跟eureka自身的监控机制相关联的
 
  
+
+![eureka server启动的流程图](images/eureka server启动的流程图.png)

@@ -88,7 +88,7 @@ registerWithEureka
 
 因为如果单个eureka server启动的话，就不能设置，但是如果是eureka server集群的话，就还是要保持为true。registerWithEureka是否要设置为true。
 
- 
+ 两个配置均为false， 那么Discovery的初始化将直接结束，表示该客户端既不进行服务注册也不进行服务发现
 
 
 
