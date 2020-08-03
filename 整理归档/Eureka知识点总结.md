@@ -488,15 +488,19 @@ com.netflix.eureka.registry.AbstractInstanceRegistry#internalCancel
 
 ## 自动故障感知机制,自动摘除
 
-EvictionTask 
+### EvictionTask 执行逻辑
 
 1. 算出延迟补偿时间.定时器自身所在的JVM发送GC或者linux服务器时间延迟导致时间变长.避免EvictionTask两次调度的时间超过了默认设置的60s.补偿时间的机制.
 2. 遍历注册表中所有的服务实例，然后调用Lease的isExpired()方法，来判断当前这个服务实例的租约是否过期了，是否失效了，服务实例故障了，如果是故障的服务实例，加入一个列表.
-3. 
+3. 不会一次性将所有故障的服务实例都摘除，每次最多讲注册表中15%的服务实例给摘除掉，所以一次没摘除所有的故障实例，下次EvictionTask再次执行的时候，会再次摘除，分批摘取机制
+4. 在摘除的时候，是从故障实例中随机挑选本次可以摘除的数量的服务实例，来摘除，随机摘取机制
+5. 摘除服务实例的时候，其实就是调用下线的方法，internelCancel()方法，注册表、recentChangeQueue、invalidate缓存
 
 
 
 
+
+### 过期时间计算bug
 
 additionalLeaseMs 延迟补偿时间计算方法:  
 
@@ -524,3 +528,303 @@ evictionTimestamp   =  lastUpdateTimestamp+90秒+延迟补偿时间.
 
 
 
+### 分批过期机制
+
+每次最多过期15%的机器，超过15%则不会自动过期
+
+
+
+当有一批过期的机器需要摘除,并不是每次把15%的机器分几个批次都过期,有可能因为自动保护,导致有些实例摘除的时间并不确定.
+
+
+
+假如检测到过期的实例数量为4台 ， 总数量为10
+
+第一个60秒到来，执行任务
+
+int registrySize = 10 ;
+int registrySizeThreshold = (int) (registrySize * 0.85) ;// 值为8
+// 可以过期的数量
+int evictionLimit = registrySize - registrySizeThreshold; //值为2
+
+
+
+第二个60秒到来，执行任务 
+
+numberOfRenewsPerMinThreshold还是原来的值，也就是 20*0.85 = 17 , 
+
+但是由于存活的机器数量只有6台，则每秒最大续约数为12 ， 12>17 = false , 所以会开启自动保护机制
+
+如果在一分钟之类，另外两台机器恢复了心跳，16>17 ， 依旧会开启自动保护机制
+
+只能等待15分钟之后，定时任务重新计算这两个参数的值。
+
+开启自我保护机制之后，则不会继续往下执行故障自动摘除的逻辑.无法摘除.
+
+
+
+总结：客户端具体的过期时间需要更加具体情况判断，但是必须大于180秒(2个90秒,其中一个90秒是bug)， 再加上定时任务的时间间隔，240秒，
+
+
+
+## Eureka自动保护机制
+
+
+
+Eureka在CAP理论当中是属于AP ， 也就说当产生网络分区时，Eureka保证系统的可用性，但不保证系统里面数据的一致性， 举个例子。当发生网络分区的时候，Eureka-Server和client端的通信被终止，server端收不到大部分的client的续约，这个时候，如果直接将没有收到心跳的client端自动剔除，那么会将可用的client端剔除，这不符合AP理论，所以Eureka宁可保留也许已经宕机了的client端 ， 也不愿意将可以用的client端一起剔除。 从这一点上，也就保证了Eureka程序的健壮性，符合AP理论
+
+
+
+
+
+### 自我保护核心参数
+
+```java
+this.expectedNumberOfRenewsPerMin = count * 2;
+this.numberOfRenewsPerMinThreshold =(int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());.expectedNumberOfRenewsPerMin = count * 2;
+this.numberOfRenewsPerMinThreshold =(int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
+```
+
+expectedNumberOfRenewsPerMin ：每分钟最大的续约数量，由于客户端是每30秒续约一次，一分钟就是续约2次， count代表的是客户端数量所以这个变量的计算公式 ： 客户端数量*2 numberOfRenewsPerMinThreshold ： 每分钟最小续约数量， 使用expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold()。serverConfig.getRenewalPercentThreshold()的默认值为0.85 ， 也就是说每分钟的续约数量要大于85% 。
+
+ 如果每分钟的续约数量小于numberOfRenewsPerMinThreshold ， 就会开启自动保护机制。在此期间，不会再主动剔除任何一个客户端
+
+
+
+
+
+Eureka-Server初始化，cancle主动下线， 客户端注册 ,定时器， 这四个场景会更新这两个变量
+
+
+
+Eureka-Server初始化   每分钟期望心跳次数
+
+```md-end-block
+    // 此处初始化值，客户端数量*2 
+    this.expectedNumberOfRenewsPerMin = count * 2;
+    // serverConfig.getRenewalPercentThreshold() 默认为0.85
+    this.numberOfRenewsPerMinThreshold =
+            (int) (this.expectedNumberOfRenewsPerMin * serverConfig.getRenewalPercentThreshold());
+```
+
+
+
+客户端注册  每分钟期望心跳次数 + 2
+
+```md-end-block
+this.expectedNumberOfRenewsPerMin = this.expectedNumberOfRenewsPerMin + 2;
+```
+
+cancle主动下线   每分钟期望心跳次数 - 2
+
+```md-end-block
+  this.expectedNumberOfRenewsPerMin = this.expectedNumberOfRenewsPerMin - 2;
+```
+
+故障 
+
+故障的时候，摘除一个服务实例，没有更新期望心跳次数的代码。
+
+
+
+### 自我保护机制开启时机
+
+定期清理任务的线程EvictionTask 的 evict()方法,每60秒触发一次. 并判断如果小于最小续约数会触发自我保护机制
+
+
+
+### 自我保护机制解除时机
+
+1. 当服务的网络分区解除之后，客户端能够和服务进行交互时，在续约的时候，更新每分钟的续约数，当每分钟的续约数大于85%时，则自动解除。
+
+2. 重新启动也会解除.
+
+3. 15分钟后重新计算.PeerAwareInstanceRegistryImpl   集群注册表，默认是15分钟，会跑一次定时任务，算一下服务实例的数量，如果从别的eureka server拉取到的服务实例的数量，大于当前的服务实例的数量，会重新计算一下，主要是跟其他的eureka server做一下同步
+
+
+
+## 集群同步
+
+
+
+### 集群同步初始化启动
+
+在Eureka启动时,会开始集群同步,从本地内存里面读取 注册信息，自动注册到本身的服务上.eureka server自己本身本来就是个eureka client，集群节点在启动的时候，会初始化Eureka Client端的配置 ，会从其他Eureka Server拉取注册信息到本地,同时在初始化Eureka Server的时候，会从本地内存里面读取 注册信息，自动注册到本身的服务上.
+
+注意: SyncUp()这个方法并不会去其他Eureka Server节点复制信息，而是从本地内存里面获取注册信息
+
+com.netflix.eureka.registry.PeerAwareInstanceRegistry#syncUp
+
+eurekaClient.getApplications(); 从本地拉取
+
+
+
+```
+eureka.client.register-with-eureka = true    ## 是否作为一个Eureka Client 注册到Eureka Server上去
+eureka.client.fetch-registry = true              ## 是否需要从Eureka Server上拉取注册信息到本地。eureka.client.register-with-eureka = true    ## 是否作为一个Eureka Client 注册到Eureka Server上去
+eureka.client.fetch-registry = true              ## 是否需要从Eureka Server上拉取注册信息到本地。
+```
+
+集群同步必须开启
+
+Eureka Server在启动的时候可以同步其他集群节点的注册信息，那么必须开启客户端配置
+
+
+
+### 集群同步业务类型
+
+集群同步的业务内容, 心跳续约,注册,下线,添加删除覆盖状态.
+
+com.netflix.eureka.registry.PeerAwareInstanceRegistryImpl.Action
+
+```
+Heartbeat ： 心跳续约
+
+Register ： 注册
+
+Cancel ： 下线
+
+StatusUpdate ： 添加覆盖状态
+
+DeleteStatusOverride ： 删除覆盖状态
+```
+
+
+
+### 集群同步发起
+
+
+
+通过 isReplication 来判断是否集群操作, isReplication = true 表示是其他Eureka Server发过来的同步请求
+
+如果是isReplication=true,则不需要继续向其他节点同步
+
+
+
+1.判断集群节点是否为空，为空则返回
+
+2.isReplication 代表是否是一个复制请求， isReplication = true 表示是其他Eureka Server发过来的同步请求
+
+这个时候是不需要继续往下同步的。否则会陷入同步死循环
+
+3.循环集群节点，过滤掉自身的节点
+
+4.发起同步请求 ，调用replicateInstanceActionsToPeers
+
+
+
+有两个地方会发生同步
+
+PeerEurekaNode初始化,
+
+每15分钟一次定时任务
+
+
+
+
+
+
+
+
+
+## 集群同步处理
+
+同步的执行是使用批处理的模式
+
+批量处理的任务执行器是com.netflix.eureka.cluster.ReplicationTaskProcessor
+
+请求批量处理的接口地址 ： peerreplication/batch/
+
+handleBatchResponse(tasks, response.getEntity().getResponseList()) ， 循环调用处理结果，
+
+成功则调用handleSuccess. , 失败则调用handleFailure ， 比如hearbeat的时候，调用返回码为
+
+404的时候，会重新发起注册。
+
+REPLICATION = “true” ,此次请求为true，表示是一个服务端的复制请求。
+
+集群同步走的和客户端注册的后续流程是一样的，只不过isReplication=true , 表明这是一个集群同步的请求
+
+
+
+如果是某台eureka client来找eureka server进行注册，isReplication是false，此时会给其他所有eureka server都同步这个注册请求，调用其他所有的eureka server的注册接口，去执行这个服务实例的注册的请求
+
+ReplicationHttpClient，此时同步注册请求给其他eureka server的时候，一定会将isReplication设置为true，这个东西可以确保说什么呢，其他eureka server接到这个同步的请求，仅仅在自己本地执行，不会再次向其他的eureka server去进行注册
+
+ 
+
+数据同步的异步批处理机制：闪光点，三个队列，第一个队列，就是纯写入；第二个队列，是用来根据时间和大小，来拆分队列；第三个队列，用来放批处理任务 ==》 异步批处理机制
+
+
+
+![eureka server同步任务批处理机制(1)](../images/eureka server同步任务批处理机制(1).png)
+
+
+
+## Spring cloud 整合
+
+### 服务器整合
+
+EurekaServerAutoConfiguration、EurekaServerInitializerConfiguration、EurekaServerBootstrap，三个类，在spring boot启动之后，完成了原来BootStrap初始化和启动eureka server的几乎一模一样的所有的代码逻辑。
+
+
+
+@EnableEurekaServer
+
+org.springframework.cloud.netflix.eureka.server.EnableEurekaServer
+
+org.springframework.cloud.netflix.eureka.server.EurekaServerAutoConfiguration
+
+
+
+EurekaServerAutoConfiguration，依托spring boot的auto configuration机制，直接我们就是使用一个注解@EnableEurekaServer，触发了EurekaServerAutoConfiguration的执行，直接一站式将我们需要的eureka server给初始化和启动。
+
+
+
+Spring cloud + spring boot的环境中，需要的EurekaServerConfig、EurekaClientConfig、EurekaInstanceConfig，都是从application.yml中去读取的，封装到EurekaServerConfigBean
+
+
+
+### 客户端整合
+
+EnableEurekaClient触发EurekaClientAutoConfiguration发现
+
+
+
+EurekaClientConfigBean从application.yml中，配置项读取出来，通过这个bean来对外提供所有的eureka client相关的配置项的读取。实现的就是EurekaClientConfig接口。EurekaInstanceConfigBean，同理，加载application.yml中的服务实例相关的配置项。
+
+ 
+
+EurekaClientAutoConfiguration，完成了DiscoveryClient的构造和初始化，eureka client初始化和启动的流程，全部在DiscoveryClient中的。EurekaDiscoveryClient，自己对eureka原生的DiscoveryClient进行了一层封装和包装，实现了eureka的DiscoveryClient接口，依赖了一个原生的EurekaClient。提供了一些额外的方法的实现。
+
+
+
+ org.springframework.cloud.netflix.eureka.serviceregistry.EurekaAutoServiceRegistration
+
+EurekaAutoServiceRegistration将原来的InstanceInfoReplicator组件里面的服务注册的逻辑，进行了一定的封装，服务注册相关的重要的逻辑，不能封装在那么不清不楚的InstanceInfoReplicator中。在这里提供了服务注册方法。
+
+ 
+
+在原生的eureka client的注册里，其实eureka client启动之后，要延迟几十秒，才会去完成注册。EurekaAutoServiceRegistration，里面包含了一个start()方法，在这个spring boot启动之后，直接就会执行start()方法，直接就去执行一个注册。
+
+ 
+
+EurekaRegistration包含了一些组件，EurekaClient、ApplicationInfoManager之类的组件。
+
+ 
+
+实际上，在spring boot一启动的时候，就会去执行EurekaServiceRegistry.register()方法,这个方法会发现什么也没干,注册时通过更改eureka服务状态, 状态发生改变后触发监听器来注册服务.
+
+@EnableEurekaClient，触发了一个EurekaClientAutoConfiguration类的执行，完成从application.yml中读取配置，完成DiscoveryClient的初始化和启动，通过自己额外加的一些代码，一启动，直接触发一次register()服务注册，向eureka server完成一次注册。
+
+
+
+## Eureka覆盖状态
+
+
+
+
+
+
+
+## LastDirtyTimestamp 实例的最后修改时间
