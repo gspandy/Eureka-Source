@@ -16,7 +16,7 @@
 
 ![springCloud-study-theory](../images/springCloud-study-theory.png)
 
-
+90秒
 
 ## 常用配置
 
